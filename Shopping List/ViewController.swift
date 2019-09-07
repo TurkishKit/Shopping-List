@@ -24,6 +24,34 @@ class ViewController: UIViewController,UITableViewDelegate,UITableViewDataSource
         return cell
     }
     
+    func tableView(_ tableView: UITableView, canEditRowAt indexPath: IndexPath) -> Bool {
+        return true
+    }
+    
+    func tableView(_ tableView: UITableView, trailingSwipeActionsConfigurationForRowAt indexPath: IndexPath) -> UISwipeActionsConfiguration? {
+        let remove = UIContextualAction(style: .destructive, title: "Remove") { (action, UIView, (Bool)->Void) in
+            self.removeItem(listItem: self.shoppingItems[indexPath.row])
+            self.shoppingItems.remove(at: indexPath.row)
+            tableView.deleteRows(at: [indexPath], with: .automatic)
+            tableView.reloadData()
+        }
+        
+        return UISwipeActionsConfiguration(actions: [remove])
+    }
+    
+    
+    func tableView(_ tableView: UITableView, leadingSwipeActionsConfigurationForRowAt indexPath: IndexPath) -> UISwipeActionsConfiguration? {
+        
+        let update = UIContextualAction(style: .normal, title: "Update") { (action, UIView, (Bool) -> Void) in
+            self.updateItem(listItem: self.shoppingItems[indexPath.row])
+            self.fetchItems()
+            tableView.reloadData()
+        }
+        update.backgroundColor = #colorLiteral(red: 0.1764705926, green: 0.4980392158, blue: 0.7568627596, alpha: 1)
+       
+        return UISwipeActionsConfiguration(actions: [update])
+    }
+    
  
     @IBOutlet weak var shoppingTableView: UITableView!
     
@@ -100,6 +128,72 @@ class ViewController: UIViewController,UITableViewDelegate,UITableViewDataSource
         } catch let error{
             print(error.localizedDescription)
         }
+        
+    }
+    
+    
+    func removeItem(listItem: String){
+        
+        guard let appDelegate = UIApplication.shared.delegate as? AppDelegate else {
+            return
+        }
+        
+        let managedContext = appDelegate.persistentContainer.viewContext
+        
+        let fetchRequest = NSFetchRequest<NSManagedObject>(entityName: "Bag")
+        fetchRequest.predicate = NSPredicate(format: "item = %@", listItem)
+        
+        if let result = try? managedContext.fetch(fetchRequest){
+            for item in result{
+                managedContext.delete(item)
+            }
+            
+            do {
+                try managedContext.save()
+                print("Items Saved")
+            } catch let error {
+                print(error.localizedDescription)
+            }
+        }
+        
+        
+    }
+    
+    func updateItem(listItem: String){
+        
+        guard let appDelegate = UIApplication.shared.delegate as? AppDelegate else {
+            return
+        }
+        
+        let managedContext = appDelegate.persistentContainer.viewContext
+        
+        let fetchRequest = NSFetchRequest<NSManagedObject>(entityName: "Bag")
+        fetchRequest.predicate = NSPredicate(format: "item = %@", listItem)
+        
+        let popup = UIAlertController(title: "Update Item", message: "Update item in your bag.", preferredStyle: .alert)
+        popup.addTextField { (textField) in
+            textField.placeholder = "Item"
+        }
+        let saveAction = UIAlertAction(title: "Add", style: .default) { (_) in
+            
+            do {
+                let result = try managedContext.fetch(fetchRequest)
+                
+                let item = result[0]
+                item.setValue(popup.textFields?.first?.text ?? "Error", forKey: "item")
+            } catch let error {
+                print(error.localizedDescription)
+            }
+            
+            self.fetchItems()
+
+        }
+        let cancelAction = UIAlertAction(title: "Cancel", style: .cancel, handler: nil)
+        popup.addAction(saveAction)
+        popup.addAction(cancelAction)
+        self.present(popup, animated: true, completion: nil)
+        
+        
         
     }
     
